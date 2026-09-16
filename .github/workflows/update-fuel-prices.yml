@@ -1,0 +1,37 @@
+name: Update UAE Fuel Prices
+
+# Runs once a day. Most days it will find no change and do nothing (see the script's
+# "unchanged" check) — this just means the update gets picked up automatically whenever
+# IPT actually publishes the new month's prices, without needing to guess the exact day/time.
+on:
+  schedule:
+    - cron: '0 6 * * *'   # 06:00 UTC daily (~10:00 Gulf time)
+  workflow_dispatch: {}    # lets you also trigger it manually from the Actions tab
+
+permissions:
+  contents: write
+
+jobs:
+  update-prices:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run price update script
+        run: node update-fuel-prices.js
+
+      - name: Commit changes if any
+        run: |
+          if ! git diff --quiet -- fuel-prices.json; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add fuel-prices.json
+            git commit -m "Update fuel prices ($(date -u +'%B %Y'))"
+            git push
+          else
+            echo "No changes to commit."
+          fi
